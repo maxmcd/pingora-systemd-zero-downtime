@@ -1,0 +1,31 @@
+# /etc/systemd/system/psdzd.service
+[Unit]
+Description=My Application Server
+After=network.target
+
+[Service]
+Type=notify
+NotifyAccess=all
+User=root
+WorkingDirectory=/opt/psdzd
+
+# Pass the PID of the old process via environment
+ExecStart=/opt/psdzd/psdzd
+ExecReload=/bin/kill -SIGQUIT $MAINPID
+
+# Give plenty of time for socket handoff and connection draining
+TimeoutStopSec=90
+TimeoutReloadSec=90
+
+# Don't kill child processes immediately
+KillMode=mixed
+
+# Use SIGTERM for graceful shutdown
+KillSignal=SIGTERM
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
