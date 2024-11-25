@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use bytes::Bytes;
+use pingora::prelude::Opt;
 use pingora::server::configuration::ServerConf;
 use pingora_core::server::Server;
 use pingora_core::upstreams::peer::HttpPeer;
@@ -8,10 +9,28 @@ use pingora_http::ResponseHeader;
 use pingora_load_balancing::Backend;
 use pingora_proxy::ProxyHttp;
 use pingora_proxy::Session;
+use sd_notify::NotifyState;
 use std::borrow::Cow;
 use std::sync::Arc;
+
+// https://github.com/cloudflare/pingora/blob/e309436319ed5cbc3aaf53221070a1fd070b8bcf/docs/user_guide/graceful.md?plain=1#L9
 fn main() {
-    let mut server = Server::new(None).unwrap();
+    let parent_pid = std::env::args().nth(1);
+    println!("parent_pid: {:?}", std::env::args());
+    let mut upgrade = false;
+    if parent_pid.is_some() {
+        upgrade = true;
+    }
+
+    env_logger::init();
+    let mut server = Server::new(Some(Opt {
+        upgrade,
+        daemon: false,
+        nocapture: false,
+        test: false,
+        conf: None,
+    }))
+    .unwrap();
     server.configuration = Arc::new(ServerConf {
         // What should this be? Maybe number of processes? But maybe we want to
         // limit how many cores this LB can occupy and leave the rest for Deno
@@ -29,8 +48,8 @@ fn main() {
         group: None,
         work_stealing: true,
         ca_file: None,
-        grace_period_seconds: None,
-        graceful_shutdown_timeout_seconds: None,
+        grace_period_seconds: Some(10),
+        graceful_shutdown_timeout_seconds: Some(10),
         client_bind_to_ipv4: vec![],
         client_bind_to_ipv6: vec![],
         upstream_keepalive_pool_size: 128,
@@ -39,6 +58,7 @@ fn main() {
         upstream_debug_ssl_keylog: false,
     });
     server.bootstrap();
+    sd_notify::notify(false, &[NotifyState::Ready]).unwrap();
 
     let mut lb = pingora_proxy::http_proxy_service(
         &server.configuration,

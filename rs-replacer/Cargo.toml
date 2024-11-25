@@ -1,0 +1,10 @@
+[package]
+name = "replacer"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+nix = { version = "0.29.0", features = ["signal"] }
+sd-notify = "0.4.3"
+signal-hook = "0.3.17"

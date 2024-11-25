@@ -1,29 +1,28 @@
-# /etc/systemd/system/psdzd.service
 [Unit]
 Description=My Application Server
 After=network.target
 
 [Service]
-Type=notify
-NotifyAccess=all
+Type=simple
 User=root
 WorkingDirectory=/opt/psdzd
 
-# Pass the PID of the old process via environment
-ExecStart=/opt/psdzd/psdzd
-ExecReload=/bin/kill -SIGQUIT $MAINPID
+# Increase logging
+StandardOutput=journal
+StandardError=journal
 
-# Give plenty of time for socket handoff and connection draining
+Environment=RUST_LOG=info
+ExecStart=/opt/psdzd/psdzd $MAINPID
+# Start new process and replace shell with it, then signal old process
+ExecReload=/bin/bash -c 'trap "" SIGQUIT; /bin/kill -SIGQUIT ${MAINPID}; exec /opt/psdzd/psdzd ${MAINPID}'
+
+# For graceful shutdown and socket handoff
+KillSignal=SIGTERM
 TimeoutStopSec=90
-TimeoutReloadSec=90
-
-# Don't kill child processes immediately
 KillMode=mixed
 
-# Use SIGTERM for graceful shutdown
-KillSignal=SIGTERM
-
-# Restart policy
+# Don't restart during our intentional reload
+RestartPreventExitStatus=SIGQUIT
 Restart=on-failure
 RestartSec=5s
 
